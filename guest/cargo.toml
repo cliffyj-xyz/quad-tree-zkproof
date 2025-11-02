@@ -1,0 +1,13 @@
+[package]
+name = "quad-tree-guest"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+pico-sdk = { workspace = true }
+quad-tree-core = { path = "../core" }
+serde = { workspace = true }
+
+[[bin]]
+name = "quad-guest"
+path = "src/main.rs"
