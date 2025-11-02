@@ -167,4 +167,6 @@ Not specified.
 
 ## Author
 
+https://cliffyj.xyz and Claude Sonnet 4.5
+
 Experimental implementation. Not audited. Not production-ready.
