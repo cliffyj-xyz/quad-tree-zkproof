@@ -1,3 +1,11 @@
+#![cfg_attr(not(test), no_std)]
+
+extern crate alloc;
+
+use alloc::vec::Vec;
+use alloc::vec;
+use alloc::string::String;
+use alloc::format;
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Sha3_256};
 
@@ -83,37 +91,25 @@ impl QuadTreeMembershipProof {
     /// We start at the leaf and work our way UP to the root
     pub fn verify(&self) -> bool {
         if self.leaf_index.depth as usize != self.sibling_hashes.len() {
-            eprintln!(
-                "Depth mismatch: index depth {} != sibling levels {}",
-                self.leaf_index.depth,
-                self.sibling_hashes.len()
-            );
             return false;
         }
 
         let mut current_hash = self.leaf_hash;
 
         // Iterate through sibling levels from LEAF to ROOT
-        // sibling_hashes[0] corresponds to the leaf level
-        // sibling_hashes[depth-1] corresponds to just below root
         for (level_from_leaf, siblings) in self.sibling_hashes.iter().enumerate() {
-            // The level in the path is counted from root, so we need to reverse it
             let path_level = self.leaf_index.depth as usize - 1 - level_from_leaf;
 
             let branch_index = match self.leaf_index.branch_at_depth(path_level) {
                 Some(idx) => idx as usize,
-                None => {
-                    eprintln!("No branch at path level {}", path_level);
-                    return false;
-                }
+                None => return false,
             };
 
             if branch_index >= 4 {
-                eprintln!("Invalid branch index: {}", branch_index);
                 return false;
             }
 
-            // Reconstruct the 4 children by inserting siblings in their correct positions
+            // Reconstruct the 4 children
             let mut children = [[0u8; 32]; 4];
             let mut sibling_idx = 0;
 
@@ -122,7 +118,6 @@ impl QuadTreeMembershipProof {
                     children[i] = current_hash;
                 } else {
                     if sibling_idx >= 3 {
-                        eprintln!("Too many siblings");
                         return false;
                     }
                     children[i] = siblings[sibling_idx];
@@ -130,24 +125,8 @@ impl QuadTreeMembershipProof {
                 }
             }
 
-            let parent_hash = hash_node(&children[0], &children[1], &children[2], &children[3]);
-
-            eprintln!(
-                "Verify Level {} from leaf (path level {}): branch={}",
-                level_from_leaf, path_level, branch_index
-            );
-            eprintln!("  Current hash: {}", hex::encode(&current_hash[..8]));
-            eprintln!("  Children[0]: {}", hex::encode(&children[0][..8]));
-            eprintln!("  Children[1]: {}", hex::encode(&children[1][..8]));
-            eprintln!("  Children[2]: {}", hex::encode(&children[2][..8]));
-            eprintln!("  Children[3]: {}", hex::encode(&children[3][..8]));
-            eprintln!("  Parent hash: {}", hex::encode(&parent_hash[..8]));
-
-            current_hash = parent_hash;
+            current_hash = hash_node(&children[0], &children[1], &children[2], &children[3]);
         }
-
-        eprintln!("Final root: {}", hex::encode(&current_hash[..8]));
-        eprintln!("Expected:   {}", hex::encode(&self.root_hash[..8]));
 
         current_hash == self.root_hash
     }
@@ -290,13 +269,12 @@ mod tests {
 
         let root = hash_node(&level1[0], &level1[1], &level1[2], &level1[3]);
 
-        // Proof for leaf [0, 0] - siblings stored from leaf to root
         let proof = QuadTreeMembershipProof {
             leaf_index: QuadTreeIndex::new(2, vec![0, 0]),
             leaf_hash: leaves[0],
             sibling_hashes: vec![
-                [leaves[1], leaves[2], leaves[3]], // Level at leaf
-                [level1[1], level1[2], level1[3]], // Level below root
+                [leaves[1], leaves[2], leaves[3]],
+                [level1[1], level1[2], level1[3]],
             ],
             root_hash: root,
         };
@@ -323,13 +301,12 @@ mod tests {
 
         let root = hash_node(&level1[0], &level1[1], &level1[2], &level1[3]);
 
-        // Test leaf at [3, 3] - rightmost position
         let proof = QuadTreeMembershipProof {
             leaf_index: QuadTreeIndex::new(2, vec![3, 3]),
             leaf_hash: leaves[15],
             sibling_hashes: vec![
-                [leaves[12], leaves[13], leaves[14]], // Level at leaf
-                [level1[0], level1[1], level1[2]],    // Level below root
+                [leaves[12], leaves[13], leaves[14]],
+                [level1[0], level1[1], level1[2]],
             ],
             root_hash: root,
         };

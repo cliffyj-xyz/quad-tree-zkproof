@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 pico-sdk = { workspace = true }
 quad-tree-core = { path = "../core" }
-serde = { workspace = true }
+getrandom = { workspace = true }
 
 [[bin]]
 name = "quad-guest"

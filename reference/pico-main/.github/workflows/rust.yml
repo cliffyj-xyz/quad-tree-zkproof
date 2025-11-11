@@ -1,0 +1,203 @@
+on:
+  pull_request:
+    branches:
+      - main
+      - release/v*
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+      - '.gitignore'
+      - 'Makefile'
+      - 'tools/**'
+      - 'scripts/**'
+
+name: Check, Test, and Format
+
+env:
+  VK_VERIFICATION: false
+
+jobs:
+  fmt:
+    if: true
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2025-08-04
+          override: true
+      - run: rustup component add rustfmt
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+  lint:
+    if: true
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure git for private repo
+        run: |
+          git config --global url."https://${{ secrets.GH_TOKEN }}:@github.com/".insteadOf "https://github.com/"
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2025-08-04
+          override: true
+      - run: rustup component add clippy
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Clippy (workspace, exclude pico-sdk)
+        run: |
+          cargo clippy --workspace --lib --examples --tests --benches --all-features --locked --exclude pico-sdk -- -D warnings
+      - name: Clippy pico-sdk
+        run: |
+          set -eux
+          for FIELD in bb kb m31; do
+            cargo clippy -p pico-sdk \
+              --no-default-features \
+              --features "$FIELD,prover,libm,coprocessor" \
+              --locked -- -D warnings
+          done
+
+  test:
+    if: true
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure git for private repo
+        run: |
+          git config --global url."https://${{ secrets.GH_TOKEN }}:@github.com/".insteadOf "https://github.com/"
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2025-08-04
+          override: true
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Cargo run examples
+        run: |
+          RUST_LOG=info FRI_QUERIES=1 cargo run --release --example toy_simple_machine
+          RUST_LOG=info FRI_QUERIES=1 cargo run --release --example test_riscv_emulator
+          RUST_LOG=info FRI_QUERIES=1 cargo run --release --example test_proverchain
+      - name: Check single threaded build
+        run: |
+          cargo build -p pico-vm --no-default-features --features=strict
+
+  kb-tests:
+    if: true
+    name: KoalaBear tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure git for private repo
+        run: |
+          git config --global url."https://${{ secrets.GH_TOKEN }}:@github.com/".insteadOf "https://github.com/"
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2025-08-04
+          override: true
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Cargo run examples
+        run: |
+          # KB basic tests
+          RUST_LOG=info FRI_QUERIES=1 cargo run --release  --example test_simple_recursion -- --elf keccak --n 15 --field kb
+          RUST_LOG=info FRI_QUERIES=1 cargo run --release  --example test_riscv -- --elf precompile --field kb
+          RUST_LOG=info FRI_QUERIES=1 cargo run --release  --example test_riscv -- --elf poseidon2 --field kb --n 1066971790
+
+          # KB e2e test and copy the final STARK proof for later test
+          RUST_LOG=info FRI_QUERIES=1 cargo run --release  --example test_e2e -- --field kb
+          cp constraints.json gnark/koalabear_verifier/
+          cp groth16_witness.json gnark/koalabear_verifier/
+
+      - name: Compile field ffi so
+        run: |
+          cargo build --release --package field-ffi
+          sudo mv ./target/release/libfield_ffi.so /usr/lib/
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Gnark verification
+        run: |
+          cd gnark/koalabear_verifier/
+          go test -timeout 70s -run TestSolveVerifierCircuit
+
+  bb-tests:
+    if: true
+    name: BabyBear tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure git for private repo
+        run: |
+          git config --global url."https://${{ secrets.GH_TOKEN }}:@github.com/".insteadOf "https://github.com/"
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2025-08-04
+          override: true
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Cargo run examples
+        run: |
+          # BB basic tests
+          RUST_LOG=info FRI_QUERIES=1 cargo run --release --example test_simple_recursion -- --elf keccak --n 15 --field bb
+          RUST_LOG=info FRI_QUERIES=1 cargo run --release --example test_riscv -- --elf precompile --field bb
+          RUST_LOG=info FRI_QUERIES=1 cargo run --release --example test_riscv -- --elf poseidon2 --field bb --n 1071209047
+
+          # BB e2e test and copy the final STARK proof for later test
+          RUST_LOG=info FRI_QUERIES=1 cargo run --release --example test_e2e -- --field bb
+          cp constraints.json gnark/babybear_verifier/
+          cp groth16_witness.json gnark/babybear_verifier/
+
+      - name: Compile field ffi so
+        run: |
+          cargo build --release --package field-ffi
+          sudo mv ./target/release/libfield_ffi.so /usr/lib/
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Gnark verification
+        run: |
+          cd gnark/babybear_verifier/
+          go test -timeout 70s -run TestSolveVerifierCircuit
+
+  m31-tests:
+    if: true
+    name: Mersenne31 tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure git for private repo
+        run: |
+          git config --global url."https://${{ secrets.GH_TOKEN }}:@github.com/".insteadOf "https://github.com/"
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2025-08-04
+          override: true
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Cargo run examples
+        run: |
+          # M31 basic tests
+          RUST_LOG=info FRI_QUERIES=1 cargo run --release --example test_riscv -- --field m31
+          RUST_LOG=info FRI_QUERIES=1 cargo run --release --example test_riscv -- --elf precompile --field m31
+          RUST_LOG=info FRI_QUERIES=1 cargo run --release --example test_riscv -- --elf poseidon2 --field m31 --n 2118082624
