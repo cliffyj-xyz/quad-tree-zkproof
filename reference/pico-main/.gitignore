@@ -1,8 +1,0 @@
-/target
-.idea/
-.DS_Store
-.vscode
-.secrets
-tmp
-/logs
-/examples/target
