@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-pico-sdk = { workspace = true }
 quad-tree-core = { path = "../core" }
 sha3 = { workspace = true }
 serde = { workspace = true }
@@ -12,6 +11,7 @@ serde_json = { workspace = true }
 hex = { workspace = true }
 rand = { workspace = true }
 ml-kem = { workspace = true }
+bincode = "1.3"
 
 [[bin]]
 name = "quad-host"

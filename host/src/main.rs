@@ -1,5 +1,5 @@
-use quad_tree_core::{hash_leaf, hash_node, QuadTreeIndex, QuadTreeMembershipProof};
 use ml_kem::{EncodedSizeUser, KemCore, MlKem768};
+use quad_tree_core::{hash_leaf, hash_node, QuadTreeIndex, QuadTreeMembershipProof};
 use rand::rngs::OsRng;
 
 /// Represents a node in the quaternary tree
@@ -81,7 +81,10 @@ pub(crate) fn build_quad_tree(depth: u8) -> QuadTreeNode {
 
 /// Generate a membership proof for a specific leaf path
 /// Sibling hashes are stored from LEAF to ROOT (bottom to top)
-pub(crate) fn generate_membership_proof(tree: &QuadTreeNode, leaf_path: &[u8]) -> QuadTreeMembershipProof {
+pub(crate) fn generate_membership_proof(
+    tree: &QuadTreeNode,
+    leaf_path: &[u8],
+) -> QuadTreeMembershipProof {
     let mut sibling_hashes = Vec::new();
     let mut current_node = tree;
 
@@ -214,11 +217,18 @@ fn main() {
     );
     println!("  ✓─ WITHOUT revealing the leaf's ML-KEM public key\n");
 
-    // Save proof for inspection
-    println!("💾 Saving proof to quad_proof.json...");
+    // Save proof files
+    println!("💾 Saving proof files...");
+
+    // Save JSON for human inspection
     let proof_json = serde_json::to_string_pretty(&proof).unwrap();
     std::fs::write("quad_proof.json", proof_json).unwrap();
-    println!("✓ Saved\n");
+
+    // Save bincode for Pico zkVM input
+    let proof_bincode = bincode::serialize(&proof).unwrap();
+    std::fs::write("quad_proof.bin", proof_bincode).unwrap();
+
+    println!("✓ Saved quad_proof.json and quad_proof.bin\n");
 
     println!("╔═══════════════════════════════════════════════════════════════╗");
     println!("║  ✅ Quaternary Tree ZK Implementation Complete                   ║");
@@ -237,4 +247,3 @@ fn main() {
 
 #[cfg(test)]
 mod tests;
-

@@ -4,6 +4,3 @@ target = "riscv32im-unknown-none-elf"
 [unstable]
 build-std = ["core", "alloc"]
 build-std-features = ["panic_immediate_abort"]
-
-[target.riscv32im-unknown-none-elf]
-rustflags = ["-C", "link-arg=-Tlink.x"]

@@ -3,13 +3,14 @@ members = ["core", "guest", "host"]
 resolver = "2"
 
 [workspace.dependencies]
-pico-sdk = { git = "https://github.com/brevis-network/pico", tag = "v1.0.0" }
+pico-sdk = { git = "https://github.com/brevis-network/pico" }
 sha3 = "0.10"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 hex = "0.4"
 rand = "0.8"
 ml-kem = "0.2.1"
+getrandom = { version = "0.2", default-features = false, features = ["custom"] }
 
 [profile.dev]
 panic = "abort"
@@ -19,9 +20,3 @@ opt-level = 3
 lto = true
 codegen-units = 1
 panic = "abort"
-
-# Force all dependencies to use no_std getrandom
-[workspace.dependencies.getrandom]
-version = "0.2"
-default-features = false
-features = ["custom"]

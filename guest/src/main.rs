@@ -1,8 +1,6 @@
 #![no_main]
 #![no_std]
 
-mod getrandom_dummy;
-
 use pico_sdk::io::{commit, read_as};
 use quad_tree_core::QuadTreeMembershipProof;
 
