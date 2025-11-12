@@ -6,9 +6,12 @@ This document records the successful generation of Pico zkVM zero-knowledge proo
 
 ## System Configuration
 
-**Hardware**: Intel MacBook
+**Hardware**: Intel MacBook 2020
+
 **Rust Toolchain**: nightly-2024-12-01 (project), nightly-2025-08-04 (Pico)
+
 **Pico Version**: Latest from main branch (git)
+
 **Date**: November 11, 2025
 
 ## Proof Generation Summary
